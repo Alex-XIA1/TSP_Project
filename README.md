@@ -20,3 +20,11 @@ courbes) avec une analyse critique
 - un rendu des archives de votre code
 - une mini-soutenance en janvier pour présenter vos idées et résultats (quelques slides issus de
 votre rapport pendant 5 à 10 min).
+
+
+Les méthodes qu'on utilise dans le projet sont :
+- Heuristique et méta-heuristique -> A voir (peut-être k-means + TSP et méta-heuristique de voisinage 1-1 sur les clusters)
+- Formulation compacte -> Problème de l'anneau étoile
+- Formulation non-compacte -> A voir
+
+
