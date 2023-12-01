@@ -1,4 +1,4 @@
-# Modèles et Applications en Ordonnancementet optimisation combinAtoire
+# Modèles et Applications en Ordonnancementet optimisation combinatoire
 ## Projet 2023-2024
 ### Autour du tracé d’un métro circulaire
 

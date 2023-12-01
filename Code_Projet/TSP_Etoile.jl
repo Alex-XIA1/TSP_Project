@@ -5,10 +5,6 @@ using Graphs
 using GraphPlot
 
 include("TSP_IO.jl")
-include("TSP_heuristique.jl")
-include("TSP_meta_heuristique.jl")
-include("TSP_PLNE_MTZ.jl")
-include("TSP_BandC.jl")
 
 
 # PLNE compacte pour l'anneau etoile, p = nombre de stations
@@ -214,5 +210,5 @@ function solve(filename)
 	 WritePdf_visualization_solution_projet(I,S_STAR,Liens,filename_STAR)
 end
 
-input = "./Instances_TSP/eil51.tsp"
+input = "../Instances_TSP/eil51.tsp"
 solve(input)
