@@ -25,7 +25,7 @@ function PLNE_compact_star(G,p)
     # Les variables yij
     @variable(m, y[1:G.nb_points, 1:G.nb_points], Bin)
     # Les variables zij, i in V, j in V \ {1,i}
-    @variable(m, z[1:G.nb_points, 1:G.nb_points])
+    @variable(m, 0 <= z[1:G.nb_points, 1:G.nb_points] <= p-1)
 
     # Fonction Objective
     # somme dij*xij + somme di,j*yi,j
@@ -65,7 +65,7 @@ function PLNE_compact_star(G,p)
     end
 
     # contrainte de flot 3 (7)
-    for i in 1:G.nb_points
+    for i in 2:G.nb_points
       for j in 2:G.nb_points
         # on veut i dans V \ {j}
         if i != j
@@ -74,16 +74,23 @@ function PLNE_compact_star(G,p)
       end
     end
 
-    # contrainte liee a la variable zij
-    for i in 1:G.nb_points
-      for j in 2:G.nb_points
-        # on veut i dans V \ {j}
-        if i != j
-          # works ?
-          @constraint(m, 0 <= z[i, j] <= p-1 )
-        end
-      end
+    i = 1
+    for j in 2:G.nb_points
+      # on veut i dans V \ {j}
+      @constraint(m, z[i, j] <= (p-1)*x[i, j])
     end
+
+    # contrainte liee a la variable zij -> problème ici c'est un j in 2:nb_points ou 1:nb_points ???
+    # for i in 1:G.nb_points
+    #   for j in 2:G.nb_points
+    #     # on veut i dans V \ {j}
+    #     if i != j
+    #       # works ?
+    #       @constraint(m, 0 <= z[i, j] <= p-1 )
+    #     end
+    #   end
+    # end
+
 
     # contrainte y11 = 1
     @constraint(m, y[1, 1] == 1)
@@ -196,7 +203,7 @@ function solve(filename)
     #WritePdf_visualization_TSP(I, "test")
   
 
-  @time @CPUtime S_STAR, Stations, Liens=PLNE_compact_star(I, 5) # on le résout
+  @time @CPUtime S_STAR, Stations, Liens=PLNE_compact_star(I, 6) # on le résout
  
 	# val_STAR=Compute_value_TSP(I, S_STAR)
 	println("Solution Etoile :S=",S_STAR)
@@ -210,5 +217,5 @@ function solve(filename)
 	 WritePdf_visualization_solution_projet(I,S_STAR,Liens,filename_STAR)
 end
 
-input = "../Instances_TSP/eil51.tsp"
+input = "../Instances_TSP/berlin52.tsp"
 solve(input)
