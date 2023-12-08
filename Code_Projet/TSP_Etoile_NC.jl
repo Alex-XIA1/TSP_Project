@@ -66,23 +66,23 @@ function PLNE_compact_star(G,p)
     @constraint(m, (sum(y[i, i] for i in 1:G.nb_points))== p)
 
     # un point i est affecte a un seul median (2)
-    for i in 1:G.nb_points
+    for i in 2:G.nb_points
       @constraint(m, (sum(y[i, j] for j in 1:G.nb_points))== 1)
     end
 
     # contrainte (3) : si j n'est pas une station, on affecte pas i a j
-    for i in 1:G.nb_points
-      for j in 1:G.nb_points
-        # on veut i dans V \ {j}
-        if i != j
-          @constraint(m, y[i, j] <= y[j, j])
-        end
-      end
-    end
+    # for i in 1:G.nb_points
+    #   for j in 1:G.nb_points
+    #     # on veut i dans V \ {j}
+    #     if i != j
+    #       @constraint(m, y[i, j] <= y[j, j])
+    #     end
+    #   end
+    # end
 
     # contrainte (4) : une station a exactement une arête entrante et sortante (edges constraint)
     for i in 1:G.nb_points
-      @constraint(m, (sum(x[j, i] for j in 1:i-1)) + (sum(x[i, j] for j in i+1:G.nb_points))== 2 * y[i,i])
+      @constraint(m, (sum(x[j, i] for j in 1:i-1)) + (sum(x[i, j] for j in i+1:G.nb_points)) == 2 * y[i,i])
     end
 
 
@@ -134,6 +134,7 @@ function PLNE_compact_star(G,p)
       start=rand(1:size(tmpSta)[1])
 
       W =find_cycle_in_integer_x(xsep, tmpSta[start])
+      
 
 
       if size(W,1)!=G.nb_points    # size(W) renvoie sinon (taille,)
@@ -141,13 +142,15 @@ function PLNE_compact_star(G,p)
           #println(W)
           
           for l in 1:G.nb_points
-            con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
-                                    + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
-                                    >= 2 * y[l,l])
-            
-          #println(con)
-            
-            MOI.submit(m, MOI.LazyConstraint(cb_data), con) 
+            if (l in W)
+              con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
+                                      + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
+                                      >= 2 * (sum(y[l,m] for m in 1:G.nb_points if m ∈ W)))
+              
+            #println(con)
+              
+              MOI.submit(m, MOI.LazyConstraint(cb_data), con) 
+            end
           end
           nbViolatedMengerCut_fromIntegerSep=nbViolatedMengerCut_fromIntegerSep+1
           
@@ -156,6 +159,8 @@ function PLNE_compact_star(G,p)
   end
 #
 #################
+
+
 
 
 #################
@@ -197,23 +202,48 @@ function PLNE_compact_star(G,p)
       Part,valuecut=mincut(G_sep2,xsep)  # Part is a vector indicating 1 and 2 for each node to be in partition 1 or 2
       
       W=Int64[]
-      for i in 1:size(tmpSta)[1]
-        if Part[i]==1
-            push!(W,tmpSta[i])
+      for k in 1:2
+        b = true
+        for i in 1:size(tmpSta)[1]
+          if (Part[i]==k)
+            if (tmpSta[i] == 1)
+              W=Int64[]
+              b = false
+            break
+            end
+          push!(W,tmpSta[i])
+          end
+        end
+        if (b)
+        break
         end
       end
       
       if (valuecut<2.0)
     #     println(W)
           
+        #   # i in W
+        #   for l in 1:G.nb_points
+        #     if (l in W)
+        #       con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
+        #                               + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
+        #                               >= 2 * y[l,l])
+              
+        # #     println(con)
+              
+        #       MOI.submit(m, MOI.UserCut(cb_data), con) 
+        #     end
+        #   end
           for l in 1:G.nb_points
-            con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
-                                    + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
-                                    >= 2 * y[l,l])
-            
-      #     println(con)
-            
-            MOI.submit(m, MOI.UserCut(cb_data), con) 
+            if (l in W)
+              con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
+                                      + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
+                                      >= 2 * (sum(y[l,m] for m in 1:G.nb_points if m ∈ W)  ))
+              
+        #     println(con)
+              
+              MOI.submit(m, MOI.UserCut(cb_data), con) 
+            end
           end
           nbViolatedMengerCut_fromFractionalSep=nbViolatedMengerCut_fromFractionalSep+1
         
@@ -347,7 +377,7 @@ function PLNE_compact_star(G,p)
   #################
   # Setting callback in CPLEX
     # our lazySep_ViolatedAcyclic function sets a LazyConstraintCallback of CPLEX
-    MOI.set(m, MOI.LazyConstraintCallback(), lazySep_ViolatedMengerCut) 
+    #MOI.set(m, MOI.LazyConstraintCallback(), lazySep_ViolatedMengerCut) 
     
     # our userSep_ViolatedAcyclic function sets a LazyConstraintCallback of CPLEX   
     MOI.set(m, MOI.UserCutCallback(), userSep_ViolatedMengerCut)
@@ -382,6 +412,20 @@ function PLNE_compact_star(G,p)
         push!(Stations, i)
       end
     end
+
+    tmpmat = zeros(Int64,G.nb_points, G.nb_points)
+
+    # ATTENTION LA RECUPERATION DES AFFECTATIONS EST BUGGUE
+    # for i in 1:G.nb_points
+    #   for j in 1:G.nb_points
+    #       tmpmat[i,j]=value(y[i, j])
+    #   end
+    # end
+    # println("MATRICE YYYYY")
+    # for i in 1:G.nb_points
+    #   println(tmpmat[i,:])
+    # end
+    
 
     # Recuperation des points lies a chaque station
     Liens = []
@@ -479,5 +523,5 @@ function solve(filename)
 	 WritePdf_visualization_solution_projet(I,S_STAR,Liens,filename_STAR)
 end
 
-input = "../Instances_TSP/berlin52.tsp"
+input = "../Instances_TSP/burma14.tsp"
 solve(input)
