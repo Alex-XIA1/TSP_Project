@@ -140,13 +140,15 @@ function PLNE_compact_star(G,p)
     
           #println(W)
           
-          con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
-                                  + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
-                                  >= 2)
-          
-        #println(con)
-          
-          MOI.submit(m, MOI.LazyConstraint(cb_data), con) 
+          for l in 1:G.nb_points
+            con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
+                                    + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
+                                    >= 2 * y[l,l])
+            
+          #println(con)
+            
+            MOI.submit(m, MOI.LazyConstraint(cb_data), con) 
+          end
           nbViolatedMengerCut_fromIntegerSep=nbViolatedMengerCut_fromIntegerSep+1
           
       end
@@ -158,40 +160,61 @@ function PLNE_compact_star(G,p)
 
 #################
 # our function userSep_ViolatedMengerCut
+# CBDATA correspond à la solution courante
   function userSep_ViolatedMengerCut(cb_data)
       # cb_data is the CPLEX value of our variables for the separation algorithm
       # In the case of a usercut, the value is fractional or integer (and can be -0.001)
+      tmpSta = Int64[]
+      for i in 1:G.nb_points
+        if (callback_value(cb_data, y[i,i]) >0.1)
+          push!(tmpSta,i)
+        end
+      end
 
       # Get the x value from cb_data 
-      xsep =zeros(Float64,G.nb_points, G.nb_points);
-      for i in 1:G.nb_points
+      xsep =zeros(Float64,size(tmpSta)[1], size(tmpSta)[1]);
+      for i in 1:size(tmpSta)[1]
           for j in 1:i-1
-              xsep[i,j]=callback_value(cb_data, x[j,i])
+            # Attention on doit mettre tmpSta[j] < tmpSta[i]
+            if tmpSta[j] < tmpSta[i]
+              xsep[i,j]=callback_value(cb_data, x[tmpSta[j],tmpSta[i]])
+            else
+              xsep[i,j]=callback_value(cb_data, x[tmpSta[i],tmpSta[j]])
+            end
           end
-          for j in i+1:G.nb_points
-              xsep[i,j]=callback_value(cb_data, x[i,j])
+
+          for j in i+1:size(tmpSta)[1]
+            if tmpSta[j] < tmpSta[i]
+              xsep[i,j]=callback_value(cb_data, x[tmpSta[j],tmpSta[i]])
+            else
+              xsep[i,j]=callback_value(cb_data, x[tmpSta[i],tmpSta[j]])
+            end
           end
       end
+
+      G_sep2=complete_digraph(size(tmpSta)[1])
       
-      Part,valuecut=mincut(G_sep,xsep)  # Part is a vector indicating 1 and 2 for each node to be in partition 1 or 2
+      Part,valuecut=mincut(G_sep2,xsep)  # Part is a vector indicating 1 and 2 for each node to be in partition 1 or 2
       
       W=Int64[]
-      for i in 1:G.nb_points
+      for i in 1:size(tmpSta)[1]
         if Part[i]==1
-            push!(W,i)
+            push!(W,tmpSta[i])
         end
       end
       
       if (valuecut<2.0)
     #     println(W)
           
-          con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
-                                  + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
-                                  >= 2)
-          
-    #     println(con)
-          
-          MOI.submit(m, MOI.UserCut(cb_data), con) 
+          for l in 1:G.nb_points
+            con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
+                                    + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
+                                    >= 2 * y[l,l])
+            
+      #     println(con)
+            
+            MOI.submit(m, MOI.UserCut(cb_data), con) 
+          end
           nbViolatedMengerCut_fromFractionalSep=nbViolatedMengerCut_fromFractionalSep+1
         
       end

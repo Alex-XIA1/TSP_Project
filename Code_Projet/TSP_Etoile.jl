@@ -202,7 +202,7 @@ function solve(filename)
     #WritePdf_visualization_TSP(I, "filename_inst")
     #WritePdf_visualization_TSP(I, "test")
   
-
+  # P > 6 devient très long
   @time @CPUtime S_STAR, Stations, Liens=PLNE_compact_star(I, 6) # on le résout
  
 	# val_STAR=Compute_value_TSP(I, S_STAR)
