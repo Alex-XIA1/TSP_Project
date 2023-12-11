@@ -18,6 +18,7 @@ end
 # Renvoie la liste des sommets formant un cycle passant par u
 function find_cycle_in_integer_x(x, u)
      S = Int64[]
+     # le sommet de base du cycle
      #push!(S,u)
      i=u
      prev=-1
@@ -71,14 +72,14 @@ function PLNE_compact_star(G,p)
     end
 
     # contrainte (3) : si j n'est pas une station, on affecte pas i a j
-    # for i in 1:G.nb_points
-    #   for j in 1:G.nb_points
-    #     # on veut i dans V \ {j}
-    #     if i != j
-    #       @constraint(m, y[i, j] <= y[j, j])
-    #     end
-    #   end
-    # end
+    for i in 1:G.nb_points
+      for j in 1:G.nb_points
+        # on veut i dans V \ {j}
+        if i != j
+          @constraint(m, y[i, j] <= y[j, j])
+        end
+      end
+    end
 
     # contrainte (4) : une station a exactement une arête entrante et sortante (edges constraint)
     for i in 1:G.nb_points
@@ -97,14 +98,12 @@ function PLNE_compact_star(G,p)
   G_sep=complete_digraph(G.nb_points)
 
   #################
-  # our function lazySep_ViolatedMengerCut
+  # our function lazySep_ViolatedMengerCut : SEPARATION ENTIERE
   function lazySep_ViolatedMengerCut(cb_data)
       # cb_data is the CPLEX value of our variables for the separation algorithm
       # In the case of a LazyCst, the value is integer, but sometimes, it is more 0.99999 than 1
 
-      # Get the x value from cb_data and round it
-      xsep =zeros(Int64,G.nb_points, G.nb_points); #Int64[G.nb_points;G.nb_points]
-      # Dans notre cas il faut tout d'abord recuperer les stations !!!! sinon le code ne marche pas
+      # 1) Reperage des points median
       tmpSta = Int64[]
       for i in 1:G.nb_points
         if (callback_value(cb_data, y[i,i]) >0.999)
@@ -112,18 +111,30 @@ function PLNE_compact_star(G,p)
         end
       end
 
-      #println("All the stations are ", tmpSta)
-
-      for i in 1:G.nb_points
-          for j in i+1:G.nb_points
-            if (callback_value(cb_data, x[i,j])>0.999)
-              xsep[i,j]=1
+      # par rapport a la solution actuelle, on cherche tous les liens xij
+      xsep =zeros(Float64,size(tmpSta)[1], size(tmpSta)[1]);
+      for i in 1:size(tmpSta)[1]
+          for j in 1:i-1
+            # Attention on doit mettre tmpSta[j] < tmpSta[i]
+            if tmpSta[j] < tmpSta[i]
+              xsep[i,j]=callback_value(cb_data, x[tmpSta[j],tmpSta[i]])
+            else
+              xsep[i,j]=callback_value(cb_data, x[tmpSta[i],tmpSta[j]])
             end
-            if (callback_value(cb_data, x[i,j])<0.0001) 
-              xsep[i,j]=0
+          end
+
+          for j in i+1:size(tmpSta)[1]
+            if tmpSta[j] < tmpSta[i]
+              xsep[i,j]=callback_value(cb_data, x[tmpSta[j],tmpSta[i]])
+            else
+              xsep[i,j]=callback_value(cb_data, x[tmpSta[i],tmpSta[j]])
             end
           end
       end
+      # Dans notre cas il faut tout d'abord recuperer les stations !!!! sinon le code ne marche pas
+
+      #println("All the stations are ", tmpSta)
+
       # for i in 1:G.nb_points
       #   print(xsep[i]," ")
       # end
@@ -131,21 +142,47 @@ function PLNE_compact_star(G,p)
       
 #        violated, W = ViolatedMengerCut_IntegerSeparation(G,xsep)
       
+      # random (on ne sait pas pourquoi mais c'est dans l'exemple donnee dans les fichiers)
       start=rand(1:size(tmpSta)[1])
 
-      W =find_cycle_in_integer_x(xsep, tmpSta[start])
+      # println("Depart ",start)
+      # for i in 1:size(tmpSta)[1]
+      #   println(xsep[i,:])
+      # end
+      # println("OK ",size(tmpSta))
+
+      # On cherche s'il y a un cycle
+      W =find_cycle_in_integer_x(xsep, start)
+      choices = Int64[]
       
+      # Si on trouve un cycle avec 1, on refait (1 ne doit pas etre dans W)
+      if 1 in W
+        for e in tmpSta
+          if e in W
+            continue
+          push!(choices,e)
+          end
+        end
+        # Si le vecteur choix est nul alors il n'y a pas de sous-tours
+        if size(choices,1) != 0
+          start=rand(1:size(choices)[1])
+          W =find_cycle_in_integer_x(xsep, start)
+        end
+      end
 
 
-      if size(W,1)!=G.nb_points    # size(W) renvoie sinon (taille,)
+      # Formulation 1 : (8) et (3)
+      # On ajoute les contraintes si il y a une sous-tour. Violation de la contrainte (8)
+      if size(W,1)!=size(tmpSta)[1]    # size(W) renvoie sinon (taille,)
+        # println("size ",size(W,1), " And ", size(tmpSta,1))
     
           #println(W)
           
-          for l in 1:G.nb_points
+          for l in 1:size(tmpSta)[1]
             if (l in W)
               con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
                                       + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
-                                      >= 2 * (sum(y[l,m] for m in 1:G.nb_points if m ∈ W)))
+                                      >= 2 * y[l,l])
               
             #println(con)
               
@@ -155,6 +192,29 @@ function PLNE_compact_star(G,p)
           nbViolatedMengerCut_fromIntegerSep=nbViolatedMengerCut_fromIntegerSep+1
           
       end
+
+      # Formulation 2 Optimale (10) dans le sujet
+      # On ajoute les contraintes s'il y a une sous-tour (Violation de la contrainte (10))
+      # NE FONCTIONNE PAS POUR L'INSTANT
+      # if size(W,1)!=size(tmpSta,1)   # size(W) renvoie sinon (taille,)
+      #   # println("size ",size(W,1), " And ", size(tmpSta,1))
+    
+      #     #println(W)
+          
+      #     for l in tmpSta
+      #       if (l in W)
+      #         con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
+      #                                 + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
+      #                                 >= 2 * (sum(y[l,m] for m in 1:G.nb_points if m ∈ W)))
+              
+      #       #println(con)
+              
+      #         MOI.submit(m, MOI.LazyConstraint(cb_data), con) 
+      #       end
+      #     end
+      #     nbViolatedMengerCut_fromIntegerSep=nbViolatedMengerCut_fromIntegerSep+1
+          
+      # end
       
   end
 #
@@ -197,10 +257,13 @@ function PLNE_compact_star(G,p)
           end
       end
 
+      # On a besoin du digraph complet
       G_sep2=complete_digraph(size(tmpSta)[1])
       
+      # mincut pour faire les sous-tours
       Part,valuecut=mincut(G_sep2,xsep)  # Part is a vector indicating 1 and 2 for each node to be in partition 1 or 2
       
+      # 1 n'appartient pas a S, pour obtenir une des sous-tours qui nous interessent
       W=Int64[]
       for k in 1:2
         b = true
@@ -222,30 +285,36 @@ function PLNE_compact_star(G,p)
       if (valuecut<2.0)
     #     println(W)
           
-        #   # i in W
-        #   for l in 1:G.nb_points
-        #     if (l in W)
-        #       con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
-        #                               + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
-        #                               >= 2 * y[l,l])
-              
-        # #     println(con)
-              
-        #       MOI.submit(m, MOI.UserCut(cb_data), con) 
-        #     end
-        #   end
-          for l in 1:G.nb_points
-            if (l in W)
-              con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
-                                      + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
-                                      >= 2 * (sum(y[l,m] for m in 1:G.nb_points if m ∈ W)  ))
-              
-        #     println(con)
-              
-              MOI.submit(m, MOI.UserCut(cb_data), con) 
-            end
+        # i in W
+        # Version 1 : contraintes (8) et (3)
+        # On peut utiliser G.nb_points parce que les points non utilisees seront = 0
+        for l in 1:G.nb_points
+          if (l in W)
+            con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
+                                    + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
+                                    >= 2 * y[l,l])
+            
+            # println(con)
+            
+            MOI.submit(m, MOI.UserCut(cb_data), con) 
           end
-          nbViolatedMengerCut_fromFractionalSep=nbViolatedMengerCut_fromFractionalSep+1
+        end
+
+        # Version 2 : contrainte (10) dans le sujet
+        # NE FONCTIONNE PAS POUR L'INSTANT
+        # for l in tmpSta
+        #   if (l in W)
+        #     con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
+        #                             + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
+        #                             >= 2 * (sum(y[l,m] for m in 1:G.nb_points if m ∈ W)  ))
+            
+        #     # println(con)
+            
+        #     MOI.submit(m, MOI.UserCut(cb_data), con) 
+        #   end
+        # end
+        
+        nbViolatedMengerCut_fromFractionalSep=nbViolatedMengerCut_fromFractionalSep+1
         
       end
             
@@ -256,18 +325,36 @@ function PLNE_compact_star(G,p)
 #################
 # our function primalHeuristicTSP
   function primalHeuristicTSP(cb_data)
-  
-    # Get the x value from cb_data 
-    xfrac =zeros(Float64,G.nb_points, G.nb_points); 
-                          
+
+    tmpSta = Int64[]
     for i in 1:G.nb_points
+      if (callback_value(cb_data, y[i,i]) >0)
+        push!(tmpSta,i)
+      end
+    end
+    # println(" Le nombre de stations ",tmpSta[:])
+
+    # Get the x value from cb_data 
+    xfrac =zeros(Float64,size(tmpSta)[1], size(tmpSta)[1]);
+    for i in 1:size(tmpSta)[1]
         for j in 1:i-1
-          xfrac[i,j]=callback_value(cb_data, x[j,i])
+          # Attention on doit mettre tmpSta[j] < tmpSta[i]
+          if tmpSta[j] < tmpSta[i]
+            xfrac[i,j]=callback_value(cb_data, x[tmpSta[j],tmpSta[i]])
+          else
+            xfrac[i,j]=callback_value(cb_data, x[tmpSta[i],tmpSta[j]])
+          end
         end
-        for j in i+1:G.nb_points
-          xfrac[i,j]=callback_value(cb_data, x[i,j])
+
+        for j in i+1:size(tmpSta)[1]
+          if tmpSta[j] < tmpSta[i]
+            xfrac[i,j]=callback_value(cb_data, x[tmpSta[j],tmpSta[i]])
+          else
+            xfrac[i,j]=callback_value(cb_data, x[tmpSta[i],tmpSta[j]])
+          end
         end
     end
+
 
     # The global idea is to add the edges one after the other
     # in the order of the x_ij values sorted from the highest to the lowest
@@ -281,42 +368,49 @@ function PLNE_compact_star(G,p)
     # must be updated
       
     sol=zeros(Float64,G.nb_points, G.nb_points);
-      
+    
+    # Toutes les aretes du TSP sur les stations
     L=[]
-    for i in 1:G.nb_points
-        for j in i+1:G.nb_points
+    for i in 1:size(tmpSta,1)
+        for j in i+1:size(tmpSta,1)
           push!(L,(i,j,xfrac[i,j]))
         end
     end
-    sort!(L,by = x -> x[3])  
-      
-    CC= zeros(Int64,G.nb_points);  #Connected component of node i
-    for i in 1:G.nb_points
+    # Les aretes sont rangees dans l'ordre decroissante (glouton)
+    sort!(L,by = x -> x[3])
+    
+    CC= zeros(Int64,size(tmpSta,1));  #Connected component of node i
+    for i in 1:size(tmpSta,1)
       CC[i]=-1
     end
 
-    tour=zeros(Int64,G.nb_points,2)  # the two neighbours of i in a TSP tour, the first is always filled before de second
-    for i in 1:G.nb_points
+    # 2 noeuds par station
+    tour=zeros(Int64,size(tmpSta,1),2)  # the two neighbours of i in a TSP tour, the first is always filled before de second
+    for i in 1:size(tmpSta,1)
         tour[i,1]=-1
         tour[i,2]=-1
     end
     
     cpt=0
-    while ( (cpt!=G.nb_points-1) && (size(L)!=0) )
+    while ( (cpt!=size(tmpSta,1)-1) && (size(L)!=0) )
     
+      # On sort la solution la plus grande
       (i,j,val)=pop!(L)   
 
       if ( ( (CC[i]==-1) || (CC[j]==-1) || (CC[i]!=CC[j]) )  && (tour[i,2]==-1) && (tour[j,2]==-1) ) 
       
           cpt=cpt+1 
           
+          # aucun noeud sortant alors on ajoute j
           if (tour[i,1]==-1)  # if no edge going out from i in the sol
           tour[i,1]=j        # the first outgoing edge is j
         CC[i]=i;
           else
+        # sinon c'est le second noeud
         tour[i,2]=j        # otherwise the second outgoing edge is j
           end
 
+          # meme chose pour j
           if (tour[j,1]==-1)
         tour[j,1]=i
         CC[j]=CC[i]
@@ -325,12 +419,16 @@ function PLNE_compact_star(G,p)
         
         oldi=i
         k=j
+
+        # On cherche un cycle ?
+        # si != -1 on alors un entrant et un sortant
         while (tour[k,2]!=-1)  # update to i the CC of all the nodes linked to j
           if (tour[k,2]==oldi) 
               l=tour[k,1]
             else 
                 l=tour[k,2]
             end
+          # on connecte a l'element connecte de i
           CC[l]=CC[i]
           oldi=k
           k=l
@@ -341,7 +439,7 @@ function PLNE_compact_star(G,p)
     
     i1=-1          # two nodes haven't their 2nd neighbour encoded at the end of the previous loop
     i2=0
-    for i in 1:G.nb_points
+    for i in 1:size(tmpSta,1)
     if tour[i,2]==-1
       if i1==-1
           i1=i
@@ -353,14 +451,18 @@ function PLNE_compact_star(G,p)
     tour[i1,2]=i2
     tour[i2,2]=i1
   
+    # Il faut bien faire attention, tour utilise des indices entre 1 et size(tmpSta)
+    # tmpSta[indice] pour recuperer le vrai point
     value=0
-    for i in 1:G.nb_points
-      for j in i+1:G.nb_points     
-        if ((j!=tour[i,1])&&(j!=tour[i,2]))
-          sol[i,j]=0
-        else          
-          sol[i,j]=1      
-          value=value+dist(G,i,j)
+    for i in 1:size(tmpSta,1)
+      for j in 2:size(tmpSta,1)
+        if tmpSta[j] > tmpSta[i]
+          if ((j!=tour[i,1])&&(j!=tour[i,2]))
+            sol[tmpSta[i],tmpSta[j]]=0
+          else          
+            sol[tmpSta[i],tmpSta[j]]=1      
+            value=value+dist(G,tmpSta[i],tmpSta[j])
+          end
         end
       end
     end
@@ -377,13 +479,16 @@ function PLNE_compact_star(G,p)
   #################
   # Setting callback in CPLEX
     # our lazySep_ViolatedAcyclic function sets a LazyConstraintCallback of CPLEX
-    #MOI.set(m, MOI.LazyConstraintCallback(), lazySep_ViolatedMengerCut) 
+    # Entiere
+    MOI.set(m, MOI.LazyConstraintCallback(), lazySep_ViolatedMengerCut) 
     
-    # our userSep_ViolatedAcyclic function sets a LazyConstraintCallback of CPLEX   
-    MOI.set(m, MOI.UserCutCallback(), userSep_ViolatedMengerCut)
+    # our userSep_ViolatedAcyclic function sets a LazyConstraintCallback of CPLEX  
+    # Version Exacte
+    #MOI.set(m, MOI.UserCutCallback(), userSep_ViolatedMengerCut)
     
     # # our primal heuristic to "round up" a primal fractional solution
-    # MOI.set(m, MOI.HeuristicCallback(), primalHeuristicTSP)
+    # L'heuristique
+    MOI.set(m, MOI.HeuristicCallback(), primalHeuristicTSP)
   #
   #################
 
@@ -415,7 +520,6 @@ function PLNE_compact_star(G,p)
 
     tmpmat = zeros(Int64,G.nb_points, G.nb_points)
 
-    # ATTENTION LA RECUPERATION DES AFFECTATIONS EST BUGGUE
     # for i in 1:G.nb_points
     #   for j in 1:G.nb_points
     #       tmpmat[i,j]=value(y[i, j])
@@ -431,17 +535,22 @@ function PLNE_compact_star(G,p)
     Liens = []
     # On parcours chaque station
     for j in 1:size(Stations)[1]
+      median = Stations[j]
       # initialisation avec la station 
       Tmp = Int64[]
       push!(Tmp, value(Stations[j]))
       for i in 1:G.nb_points
-        # j un median et i un point affecte, i != j, on utilise directement les stations pour aller plus vite
-        if (value(y[i, value(Stations[j])]) > 0.999 && i!=value(Stations[j]))
+        # j un median et i un point affecté, i != j, on utilise directement les stations pour aller plus vite
+        if (value(y[i, value(median)]) > 0.999 && i!=median)
           push!(Tmp,i)
         end
       end
       # On garde les points lies a une station
       push!(Liens,Tmp)
+    end
+
+    for i in 1:size(Liens)[1]
+      println(Liens[i,:])
     end
 
     # println("LES STATIONS")
@@ -509,7 +618,7 @@ function solve(filename)
     #WritePdf_visualization_TSP(I, "test")
   
 
-  @time @CPUtime S_STAR, Stations, Liens=PLNE_compact_star(I, 4) # on le résout
+  @time @CPUtime S_STAR, Stations, Liens=PLNE_compact_star(I, 10) # on le résout
  
 	# val_STAR=Compute_value_TSP(I, S_STAR)
 	println("Solution Etoile :S=",S_STAR)
@@ -523,5 +632,5 @@ function solve(filename)
 	 WritePdf_visualization_solution_projet(I,S_STAR,Liens,filename_STAR)
 end
 
-input = "../Instances_TSP/burma14.tsp"
+input = "../Instances_TSP/berlin52.tsp"
 solve(input)
