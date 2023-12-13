@@ -12,8 +12,4 @@ while x != "NODE_COORD_SECTION\n":
     x = f.readline()
     x = x.split(" ")
     x = x[0]
-    print(x)
-    
 
-
-print("OK ", f.readline())
