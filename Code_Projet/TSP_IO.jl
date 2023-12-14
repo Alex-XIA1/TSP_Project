@@ -222,3 +222,141 @@ function read_Clustering(filename)
 end
 
 # println(read_Clustering("../Clustering/burma14.txt"))
+
+
+# Calcul du cout de l'anneau + des etoiles
+function calc_cost(liens,ring,d)
+somme = 0
+
+# Somme pour l'anneau
+for i in 1:size(ring,1)
+	# si i == i+1, on a atteint la station de depart
+	if ring[1] == ring[i]
+	break
+	end
+	source = ring[i]
+	dest = ring[i+1]
+	somme = somme + d[source,dest]
+end
+
+# Somme pour les zones d'habitation
+for i in 1:size(liens,1)
+	tmp = liens[i]
+	# La presentation fait qu'on a toujours la station en premier
+	median = tmp[1]
+	for j in 2:size(tmp,1)
+	# Facteur 10 pour marcher jusqu'a la station
+	somme = somme + 10*d[tmp[j],median]
+	end
+end
+
+return somme
+end
+
+function pair_DistRing(ring, d, i, j)
+res = 0
+# indice dans l'anneau
+source = i
+dest = j 
+while ring[source] != ring[dest]
+	res = res + d[ring[source], ring[source+1]]
+	#source = source + 1
+	source = mod(source, size(ring,1)-1) + 1
+end
+return res
+end
+
+# Calcul du second critere et 3e critere
+function calc_meanTime(liens, ring, d, G)
+# temps de marche
+res = Float64[]
+# le temps passé en métro
+resmetro = Float64[]
+resratio = Float64[]
+
+for i in 1:G.nb_points
+	for j in i+1:G.nb_points
+	if i != j
+		# Le temps si on va directement
+		tmp = d[i,j]
+		tmp = tmp*10
+		# si le chemin n'est pas sur la ligne : On peut optimiser le code
+		if i in ring && j in ring
+		indStart = findall(x->x==i,ring)[1]
+		indFin = findall(x->x==j,ring)[1]
+		road1 = pair_DistRing(ring,d,indStart,indFin)
+		road2 = pair_DistRing(ring,d,indStart,indFin)
+		if road1 > road2
+			if road2 > tmp
+			push!(res,tmp)
+			else
+			push!(resmetro,road2)
+			end
+		else
+			if road1 > tmp
+			push!(res,tmp)
+			else
+			push!(resmetro,road1)
+			end
+		end
+		continue
+		end
+
+		lsource = -1
+		ldest = -1
+		# calcul a partir de prise du chemin par metro
+		for k in liens
+		# On cherche a quel station le premier point est dans
+		if i in k
+			lsource = k
+			break
+		end
+		end
+		# on cherche le second point
+		for l in liens
+		if j in l
+			ldest = l
+			break
+		end
+		end
+
+		# On separe la distance metro et marche pour faire plus facilement le ratio
+		tmp2 = 0
+		# Distance de source vers la station
+		tmp2 = tmp2 + 10*d[i, lsource[1]]
+		# Distance de la stations de fin vers la destination
+		tmp2 = tmp2 + 10*d[j, ldest[1]]
+		# Distance entre les 2 stations lsource -> ldest
+		indStart = findall(x->x==lsource[1],ring)[1]
+		indFin = findall(x->x==ldest[1],ring)[1]
+
+		# Distance entre les 2 stations de metro
+		tmp3=0
+		# On doit choisir le sens qui minimise la distance
+		road1 = pair_DistRing(ring,d,indStart,indFin)
+		road2 = pair_DistRing(ring,d,indFin,indStart)
+		if road1 > road2
+		tmp3 = road2
+		else
+		tmp3 = road1
+		end
+
+		if tmp2 + tmp3 > tmp
+		push!(res,tmp)
+		# c'est mieux de marcher
+		push!(resratio,1)
+		else
+		# C'est mieux de marcher et de prendre le metro
+		push!(res,tmp2+tmp3)
+		push!(resratio,tmp2/(tmp2+tmp3))
+		end
+	end
+	end
+end
+
+ratioMarche = mean(resratio)
+ratioMetro = 1 - ratioMarche
+
+return mean(res), ratioMarche, ratioMetro
+
+end

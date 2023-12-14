@@ -38,4 +38,4 @@ def kmeans(file_input, file_output, p):
 
 
 
-kmeans("../Instances_TSP/burma14.tsp","../Clustering/burma14.txt",6)
+kmeans("../Instances_TSP/berlin52.tsp","../Clustering/berlin52.txt",8)
