@@ -3,7 +3,6 @@ using CPLEX
 using CPUTime
 using Graphs
 
-include("TSP_IO.jl")
 
 # MOI is a shortcut for MathematicalOptimizationInterface
 
@@ -36,12 +35,38 @@ function find_cycle_in_integer_x(x, u)
       return S
 end
 
+function dist(I, i, j) 
+	
+	return ((I.X[i] - I.X[j])^2 + (I.Y[i] - I.Y[j])^2)^(0.5)
+	
+end
 
-function BandC_TSP(G)
+# Crée une matrice de toutes les distances point à point
+function calcul_dist2(I,Stations)
 
-    c = calcul_dist(G)
+	c = Array{Float64}(undef, (size(Stations,1), size(Stations,1)))
+	
+	for i in 1:size(Stations,1)
+	
+		for j in 1:size(Stations,1)
+		
+			c[i, j] = dist(I, Stations[i], Stations[j])
+		
+		end
+	
+	end
+	
+	return c
+	
+end
 
+
+function BandC_TSP(G,Stations, dist)
+
+    c = dist
     LP = Model(CPLEX.Optimizer)
+    Stations = sort(Stations)
+
   
     # Setting some stat variables
     nbViolatedMengerCut_fromIntegerSep = 0
@@ -50,14 +75,14 @@ function BandC_TSP(G)
     # Setting the Model LP
 
     #variables
-    @variable(LP, x[1:G.nb_points, 1:G.nb_points], Bin)  # We will only use x_{ij} with i<j
+    @variable(LP, x[1:size(Stations,1), 1:size(Stations,1)], Bin)  # We will only use x_{ij} with i<j
     # objective function
-    @objective(LP, Min, sum((sum(x[i, j] * c[i, j]) for j = i+1:G.nb_points) for i = 1:G.nb_points ) )
+    @objective(LP, Min, sum((sum(x[i, j] * c[Stations[i], Stations[j]]) for j = i+1:size(Stations,1)) for i = 1:size(Stations,1) ) )
     
 
     # Edge constraints
-    for i in 1:G.nb_points
-	  @constraint(LP, (sum(x[j, i] for j in 1:i-1)) + (sum(x[i, j] for j in i+1:G.nb_points))== 2)
+    for i in 1:size(Stations,1)
+	  @constraint(LP, (sum(x[j, i] for j in 1:i-1)) + (sum(x[i, j] for j in i+1:size(Stations,1)))== 2)
     end   
 
  
@@ -65,7 +90,7 @@ function BandC_TSP(G)
    
    # Initialization of a graph to compute min cut for the fractional separation
    
-  G_sep=complete_digraph(G.nb_points)
+  G_sep=complete_digraph(size(Stations,1))
 
   #################
   # our function lazySep_ViolatedMengerCut
@@ -74,10 +99,10 @@ function BandC_TSP(G)
         # In the case of a LazyCst, the value is integer, but sometimes, it is more 0.99999 than 1
 
         # Get the x value from cb_data and round it
-        xsep =zeros(Int64,G.nb_points, G.nb_points); #Int64[G.nb_points;G.nb_points]
+        xsep =zeros(Int64,size(Stations,1), size(Stations,1)); #Int64[G.nb_points;G.nb_points]
         
-        for i in 1:G.nb_points
-           for j in i+1:G.nb_points
+        for i in 1:size(Stations,1)
+           for j in i+1:size(Stations,1)
              if (callback_value(cb_data, x[i,j])>0.999)
                xsep[i,j]=1
              end
@@ -93,14 +118,14 @@ function BandC_TSP(G)
         
 #        violated, W = ViolatedMengerCut_IntegerSeparation(G,xsep)
         
-        start=rand(1:G.nb_points)
+        start=rand(1:size(Stations,1))
   
         W =find_cycle_in_integer_x(xsep, start)
 
 
-        if size(W,1)!=G.nb_points    # size(W) renvoie sinon (taille,)
+        if size(W,1)!=size(Stations,1)    # size(W) renvoie sinon (taille,)
       
-           con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
+           con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:size(Stations,1) if j ∉ W) 
                                    + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
                                    >= 2)
           #println(con)
@@ -121,12 +146,12 @@ function BandC_TSP(G)
         # In the case of a usercut, the value is fractional or integer (and can be -0.001)
 
         # Get the x value from cb_data 
-        xsep =zeros(Float64,G.nb_points, G.nb_points);
-        for i in 1:G.nb_points
+        xsep =zeros(Float64,size(Stations,1), size(Stations,1));
+        for i in 1:size(Stations,1)
            for j in 1:i-1
                xsep[i,j]=callback_value(cb_data, x[j,i])
            end
-           for j in i+1:G.nb_points
+           for j in i+1:size(Stations,1)
                xsep[i,j]=callback_value(cb_data, x[i,j])
            end
         end
@@ -134,7 +159,7 @@ function BandC_TSP(G)
        Part,valuecut=mincut(G_sep,xsep)  # Part is a vector indicating 1 and 2 for each node to be in partition 1 or 2
        
        W=Int64[]
-       for i in 1:G.nb_points
+       for i in 1:size(Stations,1)
           if Part[i]==1
              push!(W,i)
           end
@@ -143,7 +168,7 @@ function BandC_TSP(G)
        if (valuecut<2.0)
       #     println(W)
            
-           con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:G.nb_points if j ∉ W) 
+           con = @build_constraint(sum(x[i,j] for i ∈ W for j ∈ i+1:size(Stations,1) if j ∉ W) 
                                    + sum(x[j,i] for i ∈ W for j ∈ 1:i-1 if j ∉ W)  
                                    >= 2)
            
@@ -162,13 +187,13 @@ function BandC_TSP(G)
     function primalHeuristicTSP(cb_data)
     
      # Get the x value from cb_data 
-     xfrac =zeros(Float64,G.nb_points, G.nb_points); 
+     xfrac =zeros(Float64,size(Stations,1),size(Stations,1)); 
                            
-     for i in 1:G.nb_points
+     for i in 1:size(Stations,1)
          for j in 1:i-1
             xfrac[i,j]=callback_value(cb_data, x[j,i])
          end
-         for j in i+1:G.nb_points
+         for j in i+1:size(Stations,1)
             xfrac[i,j]=callback_value(cb_data, x[i,j])
          end
      end
@@ -184,29 +209,29 @@ function BandC_TSP(G)
      # each time an edge is added, this number (call the connected component)
      # must be updated
         
-     sol=zeros(Float64,G.nb_points, G.nb_points);
+     sol=zeros(Float64,size(Stations,1), size(Stations,1));
         
      L=[]
-     for i in 1:G.nb_points
-         for j in i+1:G.nb_points
+     for i in 1:size(Stations,1)
+         for j in i+1:size(Stations,1)
            push!(L,(i,j,xfrac[i,j]))
          end
      end
      sort!(L,by = x -> x[3])  
        
-     CC= zeros(Int64,G.nb_points);  #Connected component of node i
-     for i in 1:G.nb_points
+     CC= zeros(Int64,size(Stations,1));  #Connected component of node i
+     for i in 1:size(Stations,1)
         CC[i]=-1
      end
 
-     tour=zeros(Int64,G.nb_points,2)  # the two neighbours of i in a TSP tour, the first is always filled before de second
-     for i in 1:G.nb_points
+     tour=zeros(Int64,size(Stations,1),2)  # the two neighbours of i in a TSP tour, the first is always filled before de second
+     for i in 1:size(Stations,1)
          tour[i,1]=-1
          tour[i,2]=-1
      end
      
      cpt=0
-     while ( (cpt!=G.nb_points-1) && (size(L)!=0) )
+     while ( (cpt!=size(Stations,1)-1) && (size(L)!=0) )
      
         (i,j,val)=pop!(L)   
 
@@ -245,7 +270,7 @@ function BandC_TSP(G)
      
      i1=-1          # two nodes haven't their 2nd neighbour encoded at the end of the previous loop
      i2=0
-     for i in 1:G.nb_points
+     for i in 1:size(Stations,1)
       if tour[i,2]==-1
         if i1==-1
            i1=i
@@ -258,8 +283,8 @@ function BandC_TSP(G)
      tour[i2,2]=i1
     
      value=0
-     for i in 1:G.nb_points
-       for j in i+1:G.nb_points     
+     for i in 1:size(Stations,1)
+       for j in i+1:size(Stations,1)    
          if ((j!=tour[i,1])&&(j!=tour[i,2]))
            sol[i,j]=0
          else          
@@ -269,8 +294,8 @@ function BandC_TSP(G)
        end
      end
       
-     xvec=vcat([LP[:x][i, j] for i = 1:G.nb_points for j = i+1:G.nb_points])
-     solvec=vcat([sol[i, j] for i = 1:G.nb_points for j = i+1:G.nb_points])
+     xvec=vcat([LP[:x][i, j] for i = 1:size(Stations,1) for j = i+1:size(Stations,1)])
+     solvec=vcat([sol[i, j] for i = 1:size(Stations,1) for j = i+1:size(Stations,1)])
 
      MOI.submit(LP, MOI.HeuristicSolution(cb_data), xvec, solvec)
     
@@ -284,7 +309,7 @@ function BandC_TSP(G)
     MOI.set(LP, MOI.LazyConstraintCallback(), lazySep_ViolatedMengerCut) 
     
     # our userSep_ViolatedAcyclic function sets a LazyConstraintCallback of CPLEX   
-    #MOI.set(LP, MOI.UserCutCallback(), userSep_ViolatedMengerCut)
+    MOI.set(LP, MOI.UserCutCallback(), userSep_ViolatedMengerCut)
     
     # our primal heuristic to "round up" a primal fractional solution
     #MOI.set(LP, MOI.HeuristicCallback(), primalHeuristicTSP)

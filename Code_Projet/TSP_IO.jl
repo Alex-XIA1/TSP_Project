@@ -74,6 +74,8 @@ function Read_undirected_TSP(filename)
 	return I
 end
 
+
+
 # Visualisation d'une instance comme un nuage de points dans un fichier pdf dont le nom est passé en paramètre
 # On peut visualiser les données du PROJET ici
 function WritePdf_visualization_TSP(I, filename)
@@ -197,3 +199,26 @@ function WritePdf_visualization_solution_projet(I, S, Liens, filename)
 
 end
 
+
+function read_Clustering(filename)
+	Liens = []
+	open(filename) do f
+		for (i,line) in enumerate(eachline(f))
+			
+			# on sépare cette ligne en mots
+			x = split(line," ") # For each line of the file, splitted using space as separator
+			# on supprime les mots vides, en effet une espace suivi d'un autre espace renvoie le mot vide
+			deleteat!(x, findall(e->e=="", x))
+
+			# Un cluster avec ses liens
+			tmp = Array{Int}(undef, 0)
+			for j in 2:size(x,1)
+				push!(tmp,parse(Int,x[j]))
+			end
+			push!(Liens,tmp)
+		end
+	end
+	return Liens
+end
+
+# println(read_Clustering("../Clustering/burma14.txt"))

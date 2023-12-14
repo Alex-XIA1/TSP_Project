@@ -43,7 +43,7 @@ function pair_DistRing(ring, d, i, j)
   dest = j 
   while ring[source] != ring[dest]
     res = res + d[ring[source], ring[source+1]]
-    source = source + 1
+    #source = source + 1
     source = mod(source, size(ring,1)-1) + 1
   end
   return res
