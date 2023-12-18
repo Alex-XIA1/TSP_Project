@@ -195,7 +195,7 @@ function PLNE_compact_star(G,p)
 
 end
 
-function solve(filename)
+function solveE(filename,p)
   I = Read_undirected_TSP(filename)
 	
 	#filename_inst = replace(filename, ".tsp" => "_inst")
@@ -203,19 +203,24 @@ function solve(filename)
     #WritePdf_visualization_TSP(I, "test")
   
   # P > 6 devient très long
-  @time @CPUtime S_STAR, Stations, Liens=PLNE_compact_star(I, 6) # on le résout
+  @time @CPUtime S_STAR, Stations, Liens=PLNE_compact_star(I, p) # on le résout
  
-	# val_STAR=Compute_value_TSP(I, S_STAR)
-	println("Solution Etoile :S=",S_STAR)
-  println("Solution des villes : L=",Liens)
-  println("Les stations : Stations =",Stations)
-	# println("Valeur: ",val_STAR)
-	 println()
-	
-	 filename_STAR = replace(filename, ".tsp" => "_STAR")
+	#val_STAR=Compute_value_TSP(I, S_STAR)
+  alld = calcul_dist(I)
+	# println("Solution Etoile :S=",S_STAR)
+  # println("Solution des villes : L=",Liens)
+  # println("Les stations : Stations =",Stations)
+	# # println("Valeur: ",val_STAR)
+	# println()
 
-	 WritePdf_visualization_solution_projet(I,S_STAR,Liens,filename_STAR)
+  cost = calc_cost(Liens,S_STAR, alld)
+  mean, ratioMarche, ratioMetro = calc_meanTime(Liens,S_STAR,alld,I)
+	
+	filename_STAR = replace(filename, ".tsp" => "_STAR")
+
+	#WritePdf_visualization_solution_projet(I,S_STAR,Liens,filename_STAR)
+  return I,S_STAR,Liens, cost, mean, ratioMarche
 end
 
-input = "../Instances_TSP/berlin52.tsp"
-solve(input)
+# input = "../Instances_TSP/berlin52.tsp"
+# solveE(input,6)

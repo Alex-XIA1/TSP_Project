@@ -154,7 +154,7 @@ function solve(filename,clusterfile)
   return finalSol
 end
 
-file1 = "../Instances_TSP/berlin52.tsp"
-file2 = "../Clustering/berlin52.txt"
-res = solve(file1,file2)
+# file1 = "../Instances_TSP/berlin52.tsp"
+# file2 = "../Clustering/berlin52.txt"
+# res = solve(file1,file2)
 

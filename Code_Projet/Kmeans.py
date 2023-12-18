@@ -35,7 +35,6 @@ def kmeans(file_input, file_output, p):
             s = ' '.join(map(str,[i+1, closest[i]+1, *(np.where(affect==i)[0]+1)])) + '\n'
             f.write(s)
 
+p = 6
 
-
-
-kmeans("../Instances_TSP/berlin52.tsp","../Clustering/berlin52.txt",8)
+kmeans("../Instances_TSP/pr107.tsp","../Clustering/"+str(p)+"pr107.txt",6)
