@@ -256,19 +256,94 @@ end
 
 function pair_DistRing(ring, d, i, j)
 	res = 0
-	# indice dans l'anneau
+	# indice dans l'anneau (ring) du depart et de la fin
 	source = i
 	dest = j 
+	# tant qu'on a pas atteint la destination dans l'anneau
+	# println("START")
 	while ring[source] != ring[dest]
+		# println("source ",ring[source]," index ",source, " FINAL ", ring[dest])
+		# println(" The ring ",ring)
+		# on ajoute la distance a la station suivante
 		res = res + d[ring[source], ring[source+1]]
 		#source = source + 1
+		# on avance vers la prochaine station
 		source = mod(source, size(ring,1)-1) + 1
 	end
 	return res
 end
 
-# Calcul du second critere et 3e critere
+# Les distances dans le metro
+function distToAll(source,ring,d)
+	rdist = zeros(size(ring,1)-1)
+	# start est la station dont la personne part, on ignore le dernier element car les stations en 1 et dernier sont les memes
+	for j in 1:(size(ring,1)-1)
+		if ring[j] != ring[source]
+			t1 = pair_DistRing(ring,d,source,j)
+			t2 = pair_DistRing(ring,d,j,source)
+			bestd = min(t1,t2)
+			# c'est la meilleure distance 
+			rdist[j]=bestd
+		end
+	end
+	# Pour la station source on a les distances pour les elements du tour
+	return rdist
+end
+
 function calc_meanTime(liens, ring, d, G)
+	res = Float64[]
+	ratioMarche = Float64[]
+	for i in 1:G.nb_points
+		for j in i+1:G.nb_points
+			if i != j
+				distances = Float64[]
+				ratios = Float64[]
+				# le chemin direct x10, et le ratio de marche = 1
+				directDist = 10*d[i,j]
+				push!(distances,directDist)
+				push!(ratios, 1)
+				# On cherche la station source et ses affectations
+				lsource = -1
+				for k in liens
+					if i in k
+						lsource = k
+						break
+					end
+				end
+				# La station liee au debut
+				indStart = findall(x->x==lsource[1],ring)[1]
+				# Toutes les distances des chemins qui nous interessent dans le tour
+				allDtour = distToAll(indStart,ring,d)
+				# avec les distances on cherche le chemin minimum vers la destination
+				# Si la source est une station sourceTotrain = 0, de meme si la destination est une station
+				# donc pas de soucis si les 2 sont des stations
+				sourceTotrain = 10*d[i,lsource[1]]
+				for e in 1:size(allDtour,1)
+					# d[ring[e],j]=0 si ring[e] = j
+					# si allDtour[e] = 0, on a un point vers soit meme (on ne l'ajoute pas)
+					# println("size ",size(allDtour,1), " and ",size(ring,1))
+					if allDtour[e] != 0
+						trainTodest = 10*d[ring[e],j]
+						total = sourceTotrain+allDtour[e]+trainTodest
+						push!(distances, total)
+						push!(ratios, (sourceTotrain+trainTodest)/total )
+					end
+				end
+				# On recupere la plus petite distance a l'objectif
+				indmin = argmin(distances)
+				push!(res,distances[indmin])
+				push!(ratioMarche,ratios[indmin])
+
+			end
+		end
+	end
+
+	marche = mean(ratioMarche)
+	return mean(res), marche, 1-marche
+end
+
+# Calcul du second critere et 3e critere (premiere version)
+function calc_meanTime2(liens, ring, d, G)
 	# temps de marche
 	res = Float64[]
 	# le temps passé en métro
@@ -307,18 +382,18 @@ function calc_meanTime(liens, ring, d, G)
 			ldest = -1
 			# calcul a partir de prise du chemin par metro
 			for k in liens
-			# On cherche a quel station le premier point est dans
-			if i in k
-				lsource = k
-				break
-			end
+				# On cherche a quel station le premier point est dans
+				if i in k
+					lsource = k
+					break
+				end
 			end
 			# on cherche le second point
 			for l in liens
-			if j in l
-				ldest = l
-				break
-			end
+				if j in l
+					ldest = l
+					break
+				end
 			end
 
 			# On separe la distance metro et marche pour faire plus facilement le ratio
