@@ -148,13 +148,13 @@ function solve(filename,clusterfile)
     end
   end
 
-  finalSol = Solutions(allc,tours,aLiens)
-
-  #WritePdf_visualization_solution_projet(I,RealSol,Liens,filename_STAR)
-  return finalSol
+  # finalSol = Solutions(allc,tours,aLiens)
+  # Au lieu d'avoir toutes les solutions, on va juste prendre le premier dans la liste des non dominées pour simplifier
+  # WritePdf_visualization_solution_projet(I,tours[1],aLiens[1],"solutionHeur")
+  return allc[1], tours[1], aLiens[1]
 end
 
 # file1 = "../Instances_TSP/berlin52.tsp"
 # file2 = "../Clustering/berlin52.txt"
-# res = solve(file1,file2)
+# solve(file1,file2)
 

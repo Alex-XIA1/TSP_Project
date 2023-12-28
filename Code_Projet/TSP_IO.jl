@@ -176,10 +176,11 @@ function WritePdf_visualization_solution_projet(I, S, Liens, filename)
        push!(tabX, I.X[i])
        push!(tabY, I.Y[i])
     end
+	# println("ALLO ",tabX," AND ",tabY)
 	
-	# on ajoute le premier point pour le plot, c'est important sinon il manque l'arête entre 1 et n...
-	push!(tabX, I.X[1])
-	push!(tabY, I.Y[1])
+	# # on ajoute le premier point pour le plot, c'est important sinon il manque l'arête entre 1 et n...
+	# push!(tabX, I.X[1])
+	# push!(tabY, I.Y[1])
 	
 	p = plot(I.X, I.Y, seriestype = :scatter,legend = false)
 	plot!(p, tabX, tabY,legend = false)
@@ -193,10 +194,10 @@ function WritePdf_visualization_solution_projet(I, S, Liens, filename)
 			# Pour chaque zone en lien avec la station
 			x, y = I.X[Liens[i][j]], I.Y[Liens[i][j]]
 			# On trace un trait entre la station et la zone
-			plot!(p,[xs, x], [ys, y], line=:solid, color=:gray, legend = false)
+			plot!(p,[xs, x], [ys, y], line=:dash, color=:gray, legend = false)
 		end
 	end
-	savefig(p, "test")
+	savefig(p, filename)
 
 end
 

@@ -623,20 +623,20 @@ function solveE_NC(filename,p)
   @time @CPUtime S_STAR, Stations, Liens=PLNE_compact_star(I, p) # on le résout
  
 	# val_STAR=Compute_value_TSP(I, S_STAR)
-	println("Solution Etoile :S=",S_STAR)
-  println("Solution des villes : L=",Liens)
-  println("Les stations : Stations =",Stations)
+	# println("Solution Etoile :S=",S_STAR)
+  # println("Solution des villes : L=",Liens)
+  # println("Les stations : Stations =",Stations)
   alld = calcul_dist(I)
 
   # PARTIE CALCUL DES CRITERES
   # Les liens entre stations, l'anneau et les distances
   cost = calc_cost(Liens,S_STAR, alld)
-  println("Le coût de la solution (critere 1): ",round(cost;digits=2))
+  # println("Le coût de la solution (critere 1): ",round(cost;digits=2))
 	# # println("Valeur: ",val_STAR)
   mean, ratioMarche, ratioMetro = calc_meanTime(Liens,S_STAR,alld,I)
-  println("Le temps moyen de la solution (critere 2): ",round(mean;digits=2))
-  println("Les ratios de marche et metro (critère 3): Marche - ",round(ratioMarche;digits=3), " et Metro - ",round(ratioMetro;digits=3))
-  println()
+  # println("Le temps moyen de la solution (critere 2): ",round(mean;digits=2))
+  # println("Les ratios de marche et metro (critère 3): Marche - ",round(ratioMarche;digits=3), " et Metro - ",round(ratioMetro;digits=3))
+  # println()
 
   #filename_STAR = replace(filename, ".tsp" => "_STAR")
 
@@ -644,5 +644,5 @@ function solveE_NC(filename,p)
   return I,S_STAR,Liens, cost, mean, ratioMarche
 end
 
-input = "../Instances_TSP/berlin52.tsp"
-solveE_NC(input,6)
+# input = "../Instances_TSP/berlin52.tsp"
+# solveE_NC(input,6)
