@@ -23,8 +23,8 @@ votre rapport pendant 5 à 10 min).
 
 
 Les méthodes qu'on utilise dans le projet sont :
-- Heuristique et méta-heuristique -> A voir (peut-être k-means + TSP et méta-heuristique de voisinage 1-1 sur les clusters)
+- Heuristique et méta-heuristique -> Heuristique Kmeans + TSP (À la façon d'un TSP Généralisé), Métaheuristique voisinage 1-1 au sein d'un cluster.
 - Formulation compacte -> Problème de l'anneau étoile
-- Formulation non-compacte -> A voir
+- Formulation non-compacte -> Problème de l'anneau étoile pour comparer avec la formulation compacte
 
 
