@@ -231,26 +231,26 @@ function calc_cost(liens,ring,d)
 	somme = 0
 
 	# Somme pour l'anneau
-	for i in 1:size(ring,1)
+	for i in 2:size(ring,1)
 		# si i == i+1, on a atteint la station de depart
 		if ring[1] == ring[i]
-		break
+			break
 		end
 		source = ring[i]
 		dest = ring[i+1]
 		somme = somme + d[source,dest]
 	end
 
-	# Somme pour les zones d'habitation
-	for i in 1:size(liens,1)
-		tmp = liens[i]
-		# La presentation fait qu'on a toujours la station en premier
-		median = tmp[1]
-		for j in 2:size(tmp,1)
-		# Facteur 10 pour marcher jusqu'a la station
-		somme = somme + 10*d[tmp[j],median]
-		end
-	end
+	# Somme pour les zones d'habitation <- ça ne fait pas vraiment de sens avec un facteur 10 on voudras presque toujours faire totues les stations
+	# for i in 1:size(liens,1)
+	# 	tmp = liens[i]
+	# 	# La presentation fait qu'on a toujours la station en premier
+	# 	median = tmp[1]
+	# 	for j in 2:size(tmp,1)
+	# 	# Facteur 10 pour marcher jusqu'a la station
+	# 	somme = somme + 10*d[tmp[j],median]
+	# 	end
+	# end
 
 	return somme
 end

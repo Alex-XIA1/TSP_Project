@@ -60,6 +60,7 @@ function compare(allc,alltours,allLiens, solc,soltour,solLien)
 end
 
 function solve(filename,clusterfile)
+  totaltime = 0
   I = Read_undirected_TSP(filename)
   Liens = read_Clustering(clusterfile)
   Stations = map(x->x[1],Liens)
@@ -70,12 +71,15 @@ function solve(filename,clusterfile)
 
   c = calcul_dist(I)
 
-  @time @CPUtime TSP_Sol =BandC_TSP(I,Stations, c) # on le résout
+  TSP_Sol, solveTime =BandC_TSP(I,Stations, c) # on le résout
+  totaltime = totaltime+solveTime
   # On doit changer par les stations
   RealSol = Int64[]
   for e in TSP_Sol
     push!(RealSol,Stations[e])
   end
+
+  # println("Stations ", Stations)
 
   # val_STAR=Compute_value_TSP(I, S_STAR)
   # println("Solution TSP :S=",RealSol)
@@ -106,11 +110,9 @@ function solve(filename,clusterfile)
   push!(aLiens,Liens)
 
   # Pour chaque cluster
-  println(" \nPHASE iteration unique du PLS\n")
   # println(" Initialement ",allc, " ", tours," ",aLiens)
   # println(Stations)
   # println(Liens)
-  
   for i in 1:size(Liens,1)
     # On essaye de changer le centre du cluster i
     for j in 2:size(Liens[i],1)
@@ -123,8 +125,8 @@ function solve(filename,clusterfile)
       copyL[i][j] = copyL[i][1]
       copyL[i][1] = newSta[i]
 
-
-      @time @CPUtime TSP_Sol =BandC_TSP(I,newSta, c) # on le résout avec le nouveau centre
+      TSP_Sol, solveTime =BandC_TSP(I,newSta, c) # on le résout avec le nouveau centre
+      totaltime = totaltime+solveTime
       
       RealSol = Int64[]
       for e in TSP_Sol
@@ -143,7 +145,7 @@ function solve(filename,clusterfile)
       tmpSol = [round(cost;digits=2),round(mean;digits=2),round(ratioMarche;digits=3),round(ratioMetro;digits=3)]
 
       # Il faut maintenant faire la comparaison pour verifier qu'il n'y a pas de solutions dominées au sens de pareto
-      allc, tours, aLiens, bool = compare(allc,tours,aLiens,tmpSol,TSP_Sol,copyL)
+      allc, tours, aLiens, bool = compare(allc,tours,aLiens,tmpSol,RealSol,copyL)
 
     end
   end
@@ -151,6 +153,8 @@ function solve(filename,clusterfile)
   # finalSol = Solutions(allc,tours,aLiens)
   # Au lieu d'avoir toutes les solutions, on va juste prendre le premier dans la liste des non dominées pour simplifier
   # WritePdf_visualization_solution_projet(I,tours[1],aLiens[1],"solutionHeur")
+  println("Temps total d'exécution ",totaltime)
+  println("OVER")
   return allc[1], tours[1], aLiens[1]
 end
 

@@ -17,6 +17,7 @@ function PLNE_compact_star(G,p)
 
     # Optimizer m, not Adam
     m = Model(CPLEX.Optimizer)
+    set_time_limit_sec(m, 600)
 
 
     # Variables

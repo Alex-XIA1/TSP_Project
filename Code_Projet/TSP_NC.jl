@@ -65,7 +65,6 @@ function BandC_TSP(G,Stations, dist)
 
     c = dist
     LP = Model(CPLEX.Optimizer)
-    Stations = sort(Stations)
 
   
     # Setting some stat variables
@@ -288,8 +287,8 @@ function BandC_TSP(G,Stations, dist)
          if ((j!=tour[i,1])&&(j!=tour[i,2]))
            sol[i,j]=0
          else          
-           sol[i,j]=1      
-      	   value=value+dist(G,i,j)
+           sol[i,j]=1
+      	  value=value+dist(G,i,j)
          end
        end
      end
@@ -312,7 +311,7 @@ function BandC_TSP(G,Stations, dist)
     MOI.set(LP, MOI.UserCutCallback(), userSep_ViolatedMengerCut)
     
     # our primal heuristic to "round up" a primal fractional solution
-    #MOI.set(LP, MOI.HeuristicCallback(), primalHeuristicTSP)
+   #  MOI.set(LP, MOI.HeuristicCallback(), primalHeuristicTSP)
   #
   #################
 
@@ -339,12 +338,12 @@ function BandC_TSP(G,Stations, dist)
       S= find_cycle_in_integer_x(x, 1)
       push!(S,first(S))
       
-      println("Temps de résolution :", solve_time(LP))
-      println("Number of generated Menger Cut constraints  : ", nbViolatedMengerCut_fromIntegerSep+nbViolatedMengerCut_fromFractionalSep)
-      println("   from IntegerSep : ", nbViolatedMengerCut_fromIntegerSep)
-      println("   from FractionalSep :", nbViolatedMengerCut_fromFractionalSep)
+      # println("Temps de résolution :", solve_time(LP))
+      # println("Number of generated Menger Cut constraints  : ", nbViolatedMengerCut_fromIntegerSep+nbViolatedMengerCut_fromFractionalSep)
+      # println("   from IntegerSep : ", nbViolatedMengerCut_fromIntegerSep)
+      # println("   from FractionalSep :", nbViolatedMengerCut_fromFractionalSep)
 
-      return S
+      return S,solve_time(LP)
     else
       println("Problème lors de la résolution")
     end
