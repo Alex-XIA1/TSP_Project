@@ -27,4 +27,20 @@ Les méthodes qu'on utilise dans le projet sont :
 - Formulation compacte -> Problème de l'anneau étoile
 - Formulation non-compacte -> Problème de l'anneau étoile pour comparer avec la formulation compacte
 
+Pour pouvoir faire le Kmeans clustering : installer sci-kitlearn et numpy. Puis pour lancer : python (ou python3) Kmeans.py (en changeant si besoin les paramètres du fichier)
+
+Le dossier imgReport contient des affichages de solutions avec par exemple 6berlin52solutionNC.png qui signifie 6 stations, berlin52, solution PLNE non compact. Si on numéro n'est pas présent au début, ce sera par défaut 6 stations.
+
+Le dossier Clustering contient des clusters déjà fait (pour les expériences)
+Le dossier Instances_TSP contient les instances fournies de TSP
+Le dossier Code_Projet contient le code du projet :
+- TSP_IO.jl contient des codes pour le calcul des critères ainsi que de lecture de fichier (certaines fonctions données dans le TME). 
+- TSP_Etoile.jl correspond à la formulation compact de l'anneau étoile. Le fichier TSP_Etoile_NC.jl correspond à la formulation non compact de l'anneau étoile. 
+- mainExperiences.jl correspond au fichier avec les initialisations et expériences
+- MetroMeta.jl correspond au code de la metaheuristique
+- Kmeans.py correspond au code du clustering Kmeans
+- TSP_NC.jl correspond au code fourni dans le TME du TSP.
+
+Donc pour lancer une expérience il suffit de lancer le fichier mainExperiences.jl avec Julia en précisant le nom des instances dans le fichier (cluster pour la métaheuristique et l'instance pour tous).
+
 
